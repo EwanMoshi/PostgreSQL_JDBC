@@ -28,8 +28,7 @@ public class LibraryModel {
     	dialogParent = parent;
         try {
 			Class.forName("org.postgresql.Driver");
-			con = DriverManager.getConnection("jdbc:postgresql://127.0.0.1:5432/moshiewan_jdbc", userid, password);
-			
+			con = DriverManager.getConnection("jdbc:postgresql://127.0.0.1:5432/"+userid+"_jdbc", userid, password);		
 		} catch (SQLException | ClassNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -338,15 +337,129 @@ public class LibraryModel {
 		}
     }
 
-    public String deleteCus(int customerID) {
-    	return "Delete Customer";
+    public String deleteCus(int customerID) {	
+    	String output = "";
+    	try {
+			/* Create SQL query as string */
+    		String delete = "DELETE FROM Customer c WHERE c.customerid = "+customerID;
+			Statement st1 = con.createStatement(); //create statement 
+			Statement st2 = con.createStatement(); //create statement 2
+						
+			/* Create SQL query as string to see if customer has loan*/
+			String selectCustomerBook = "SELECT * FROM cust_book cb WHERE cb.customerid = "+customerID;
+			ResultSet rs1 = st1.executeQuery(selectCustomerBook); //set containing the books that this customer has loaned
+			
+			/* Create SQL query as string to see if customer exists*/
+    		String select = "SELECT FROM Customer c WHERE c.customerid = "+customerID;
+			ResultSet rs2 = st2.executeQuery(select); //set containing the customer
+			
+			if(rs1.next()) { //if the customer has a loan restrict the operation		
+				output += "Cannot delete a Customer who has a loan!";
+			}
+			else {
+				if(rs2.next()) { //if the customer exists
+					st1.executeUpdate(delete); //delete customer
+					output += "Customer "+customerID+" successfully removed!";
+				}
+				else {
+					output += "CustomerID not found";
+				}
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return output;
     }
 
     public String deleteAuthor(int authorID) {
-    	return "Delete Author";
+    	String output = "";
+    	try {
+			/* Create SQL query as string */
+    		String delete = "DELETE FROM Author a WHERE a.authorid = "+authorID;
+			Statement st1 = con.createStatement(); //create statement
+			Statement st2 = con.createStatement(); //create statement 2
+
+			/* Create SQL query as string to see if author exists*/
+			String selectBookAuthor = "SELECT * FROM book_author ba WHERE ba.authorid = "+authorID;
+			ResultSet rs1 = st1.executeQuery(selectBookAuthor); //set containing books this author has authored
+			
+			/* Create SQL query as string to see if author exists*/
+    		String select = "SELECT FROM Author a WHERE a.authorid = "+authorID;
+			ResultSet rs2 = st2.executeQuery(select); //set containing the author
+
+			if(rs1.next()) {
+				/*Delete the tuple from Book Author*/
+	    		String deleteBookAuthor = "DELETE FROM book_author ba WHERE ba.authorid = "+authorID;
+				st1.executeUpdate(deleteBookAuthor);
+				st1.executeUpdate(delete); //delete from author once we delete the author from book author
+				
+				output += "Author "+authorID+" successfully removed!";
+			}
+			else {
+				/*If the author hasn't authored any books, but they still exists, delete them*/
+				if(rs2.next()) {
+					st1.executeUpdate(delete); //delete author
+					
+					output += "Author "+authorID+" successfully removed!";
+				}
+				else {
+					output += "AuthorID not found";
+				}
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return output;
     }
 
     public String deleteBook(int isbn) {
-    	return "Delete Book";
+    	String output = "";
+    	try {
+			/* Create SQL query as string */
+    		String delete = "DELETE FROM Book b WHERE b.isbn = "+isbn;
+			Statement st1 = con.createStatement(); //create statement
+			Statement st2 = con.createStatement(); //create statement 2
+			Statement st3 = con.createStatement(); //create statement 2
+
+			/* Create SQL query as string to see if author for this book exists*/
+    		String selectBookAuthor = "SELECT FROM book_author ba WHERE ba.isbn = "+isbn;
+			ResultSet rs1 = st1.executeQuery(selectBookAuthor); //set containing the author
+			
+			/* Create SQL query as string to see if book exists*/
+			String selectBook = "SELECT * FROM Book b WHERE b.isbn = "+isbn;
+			ResultSet rs2 = st2.executeQuery(selectBook); //set containing the book
+			
+			/* Create SQL query as string to see if book is on loan*/
+			String selectBookLoan = "SELECT * FROM cust_book cb WHERE cb.isbn = "+isbn;
+			ResultSet rs3 = st3.executeQuery(selectBookLoan); //set containing the loaned book
+			
+			if(rs3.next()) { //if the book is on loan
+				output += "Cannot delete a book that is on loan!"; //restrict the operation
+			}
+			else {
+				if(rs1.next()) { //if book has an author we must cascade the delete
+					/*Delete the tuple from Book Author*/
+		    		String deleteBookAuthor = "DELETE FROM book_author ba WHERE ba.isbn = "+isbn;
+					st1.executeUpdate(deleteBookAuthor);
+					st1.executeUpdate(delete); //delete from author once we delete the author from book author
+					
+					output += "Book "+isbn+" successfully removed!";
+				}
+				else {
+					/*If the author hasn't authored any books, but the book still exists, delete it*/
+					if(rs2.next()) {
+						st1.executeUpdate(delete); //delete book
+						
+						output += "Author "+isbn+" successfully removed!";
+					}
+					else {
+						output += "Book ISBN not found";
+					}
+				}
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return output;
     }
 }
